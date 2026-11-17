@@ -1,0 +1,60 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+def embedded = providers.gradleProperty('embedded').orElse('false').get().toBoolean()
+if (embedded) apply plugin: 'com.chaquo.python'
+android {
+    namespace 'io.aistudio.mobile'
+    compileSdk 35
+    defaultConfig {
+        applicationId embedded ? 'io.aistudio.mobile.embedded' : 'io.aistudio.mobile'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0'
+        buildConfigField 'boolean', 'EMBEDDED', embedded.toString()
+        if (embedded) ndk { abiFilters 'arm64-v8a' }
+    }
+    sourceSets {
+        main {
+            java.srcDir(embedded ? 'src/embedded/kotlin' : 'src/client/kotlin')
+            if (embedded) assets.srcDir('src/embedded/assets')
+            if (embedded) manifest.srcFile('src/embedded/AndroidManifest.xml')
+        }
+    }
+    buildFeatures { compose true; buildConfig true }
+    composeOptions { kotlinCompilerExtensionVersion '1.5.14' }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    kotlinOptions { jvmTarget = '17' }
+}
+if (embedded) {
+    chaquopy {
+        defaultConfig {
+            version = '3.11'
+            pip {
+                install 'fastapi>=0.115.0'
+                install 'httpx[http2,socks]>=0.28.0'
+                install 'pydantic==2.12.5'
+                install 'uvicorn>=0.30.0'
+                install 'python-dotenv>=1.0.0'
+                install 'PyYAML>=6.0.0'
+                install 'python-multipart>=0.0.9'
+            }
+        }
+        sourceSets { main { srcDir '../../src'; srcDir 'src/embedded/python' } }
+    }
+    tasks.register('stageGatewayConfig', Copy) {
+        from '../../config.yaml'
+        into 'src/embedded/assets'
+    }
+    tasks.named('preBuild').configure { dependsOn 'stageGatewayConfig' }
+}
+dependencies {
+    implementation 'androidx.activity:activity-compose:1.9.3'
+    implementation platform('androidx.compose:compose-bom:2024.06.00')
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.foundation:foundation'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+}
