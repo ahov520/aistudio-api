@@ -49,7 +49,7 @@ jobs:
           java-version: '17'
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.13'
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile && bun run build
         working-directory: web
@@ -69,6 +69,22 @@ jobs:
           fi
           test -f "$sdk/platforms/android-35/android.jar"
           test -x "$sdk/build-tools/35.0.0/aapt2"
+      - name: Cross-compile pydantic-core for Android
+        env:
+          CIBW_PLATFORM: android
+          CIBW_ARCHS: arm64_v8a
+          CIBW_BUILD: cp313-android_arm64_v8a
+          CIBW_TEST_SKIP: '*'
+          CIBW_ENVIRONMENT_ANDROID: "ANDROID_API_LEVEL=24 MATURIN_PEP517_ARGS=--locked"
+        run: |
+          rustup target add aarch64-linux-android
+          python -m pip install 'cibuildwheel>=3.4,<4'
+          mkdir -p "$RUNNER_TEMP/pydantic-src" android/wheels
+          curl -fsSL --retry 3 'https://files.pythonhosted.org/packages/71/70/23b021c950c2addd24ec408e9ab05d59b035b39d97cdc1130e1bce647bb6/pydantic_core-2.41.5.tar.gz' -o "$RUNNER_TEMP/pydantic-core.tar.gz"
+          echo "08daa51ea16ad373ffd5e7606252cc32f07bc72b28284b6bc9c6df804816476e  $RUNNER_TEMP/pydantic-core.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/pydantic-core.tar.gz" -C "$RUNNER_TEMP/pydantic-src" --strip-components=1
+          python -m cibuildwheel --output-dir android/wheels "$RUNNER_TEMP/pydantic-src"
+          ls -lh android/wheels
       - run: gradle -p android -Pembedded=true :app:assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:

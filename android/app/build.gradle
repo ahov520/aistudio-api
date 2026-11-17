@@ -31,8 +31,11 @@ android {
 if (embedded) {
     chaquopy {
         defaultConfig {
-            version = '3.11'
+            version = '3.13'
+            buildPython 'python3.13'
+            extractPackages 'aistudio_api'
             pip {
+                options '--find-links', rootProject.file('wheels').absolutePath
                 install 'fastapi>=0.115.0'
                 install 'httpx[http2,socks]>=0.28.0'
                 install 'pydantic==2.12.5'
